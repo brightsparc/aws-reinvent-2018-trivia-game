@@ -3,9 +3,10 @@ import codebuild = require('@aws-cdk/aws-codebuild');
 import codepipeline = require('@aws-cdk/aws-codepipeline');
 import iam = require('@aws-cdk/aws-iam');
 import cdk = require('@aws-cdk/cdk');
+import { TriviaGameGitRepoProps } from './pipeline';
 
 class TriviaGameBackendBaseImagePipeline extends cdk.Stack {
-    constructor(parent: cdk.App, name: string, props?: cdk.StackProps) {
+    constructor(parent: cdk.App, name: string, props: TriviaGameGitRepoProps) {
         super(parent, name, props);
 
         const pipeline = new codepipeline.Pipeline(this, 'Pipeline', {
@@ -16,8 +17,8 @@ class TriviaGameBackendBaseImagePipeline extends cdk.Stack {
         const githubAccessToken = new cdk.SecretParameter(this, 'GitHubToken', { ssmParameter: 'GitHubToken' });
         new codepipeline.GitHubSourceAction(this, 'GitHubSource', {
             stage: pipeline.addStage('Source'),
-            owner: 'aws-samples',
-            repo: 'aws-reinvent-2018-trivia-game',
+            owner: props.repoOwner,
+            repo: props.repoName,
             oauthToken: githubAccessToken.value
         });
 
@@ -49,5 +50,10 @@ class TriviaGameBackendBaseImagePipeline extends cdk.Stack {
 }
 
 const app = new cdk.App();
-new TriviaGameBackendBaseImagePipeline(app, 'TriviaGameBackendBaseImagePipeline');
+const repoOwner = (process.env.GIT_REPO_OWNER) ? process.env.GIT_REPO_OWNER : 'aws-samples';
+const repoName = (process.env.GIT_REPO_NAME) ? process.env.GIT_REPO_NAME : 'aws-reinvent-2018-trivia-game';
+new TriviaGameBackendBaseImagePipeline(app, 'TriviaGameBackendBaseImagePipeline', {
+    repoOwner: repoOwner,
+    repoName: repoName
+});
 app.run();

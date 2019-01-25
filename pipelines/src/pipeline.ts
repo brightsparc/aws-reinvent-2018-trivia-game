@@ -6,7 +6,12 @@ import cfn = require('@aws-cdk/aws-cloudformation');
 import iam = require('@aws-cdk/aws-iam');
 import cdk = require('@aws-cdk/cdk');
 
-export interface TriviaGameCfnPipelineProps {
+export interface TriviaGameGitRepoProps extends cdk.StackProps {
+    repoOwner: string;
+    repoName: string;
+}
+
+export interface TriviaGameCfnPipelineProps extends TriviaGameGitRepoProps {
     stackName: string;
     templateName: string;
     pipelineName: string;
@@ -18,7 +23,7 @@ export class TriviaGameCfnPipeline extends cdk.Construct {
 
     public readonly sourceAction: actions.SourceAction
 
-    constructor(parent: cdk.Construct, name: string, props: TriviaGameCfnPipelineProps) {
+    constructor(parent: cdk.Stack, name: string, props: TriviaGameCfnPipelineProps) {
         super(parent, name);
 
         const pipeline = new codepipeline.Pipeline(this, 'Pipeline', {
@@ -34,8 +39,8 @@ export class TriviaGameCfnPipeline extends cdk.Construct {
         const githubAccessToken = new cdk.SecretParameter(this, 'GitHubToken', { ssmParameter: 'GitHubToken' });
         const sourceAction = new codepipeline.GitHubSourceAction(this, 'GitHubSource', {
             stage: pipeline.addStage('Source'),
-            owner: 'aws-samples',
-            repo: 'aws-reinvent-2018-trivia-game',
+            owner: props.repoOwner,
+            repo: props.repoName,
             oauthToken: githubAccessToken.value
         });
         this.sourceAction = sourceAction;
@@ -43,7 +48,8 @@ export class TriviaGameCfnPipeline extends cdk.Construct {
         // Build
         const buildProject = new codebuild.Project(this, 'BuildProject', {
             source: new codebuild.GitHubSource({
-                cloneUrl: 'https://github.com/aws-samples/aws-reinvent-2018-trivia-game',
+                owner: props.repoOwner,
+                repo: props.repoName,
                 oauthToken: githubAccessToken.value
             }),
             buildSpec: props.directory + '/buildspec.yml',
@@ -68,11 +74,11 @@ export class TriviaGameCfnPipeline extends cdk.Construct {
             .addAction('route53:ListHostedZonesByName'));
         buildProject.addToRolePolicy(new iam.PolicyStatement()
             .addAction('ssm:GetParameter')
-            .addResource(cdk.ArnUtils.fromComponents({
+            .addResource(cdk.arnFromComponents({
                 service: 'ssm',
                 resource: 'parameter',
                 resourceName: 'CertificateArn-*'
-            })));
+            }, parent)));
         buildProject.addToRolePolicy(new iam.PolicyStatement()
             .addAllResources()
             .addActions("ecr:GetAuthorizationToken",
@@ -89,11 +95,11 @@ export class TriviaGameCfnPipeline extends cdk.Construct {
                 "ecr:PutImage"));
         buildProject.addToRolePolicy(new iam.PolicyStatement()
             .addAction('cloudformation:DescribeStackResources')
-            .addResource(cdk.ArnUtils.fromComponents({
+            .addResource(cdk.arnFromComponents({
                 service: 'cloudformation',
                 resource: 'stack',
                 resourceName: 'Trivia*'
-            })));
+            }, parent)));
 
         const buildStage = pipeline.addStage('Build');
         const buildAction = buildProject.addToPipeline(buildStage, 'CodeBuild');

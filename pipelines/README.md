@@ -20,7 +20,14 @@ aws ssm put-parameter --name GitHubToken --type String --value 12345
 
 ## Customize
 
-Replace all references to 'aws-samples' with your own fork of this repo.  Replace all references to 'reinvent-trivia.com' with your own domain name.
+Set the following environment variables to generate cloud formation templates that are customized to your fork of this repo, and your domain name.
+
+```
+export GIT_REPO_OWNER=<your_git_username>
+export DOMAIN_TEST=<test-api.your_domain.com>
+export DOMAIN_PROD=<api.your_domain.com>
+export DOMAIN_ZONE=<your_domain.com>
+```
 
 ## Deploy
 

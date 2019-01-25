@@ -2,13 +2,15 @@
 import cdk = require('@aws-cdk/cdk');
 import codebuild = require('@aws-cdk/aws-codebuild');
 import iam = require('@aws-cdk/aws-iam');
-import { TriviaGameCfnPipeline } from './pipeline';
+import { TriviaGameCfnPipeline, TriviaGameGitRepoProps } from './pipeline';
 
 class TriviaGameChatBotPipelineStack extends cdk.Stack {
-    constructor(parent: cdk.App, name: string, props?: cdk.StackProps) {
+    constructor(parent: cdk.App, name: string, props: TriviaGameGitRepoProps) {
         super(parent, name, props);
 
         const pipelineConstruct = new TriviaGameCfnPipeline(this, 'Pipeline', {
+            repoOwner: props.repoOwner,
+            repoName: props.repoName,
             pipelineName: 'chat-bot',
             stackName: 'ChatBot',
             templateName: 'ChatBot',
@@ -34,11 +36,11 @@ class TriviaGameChatBotPipelineStack extends cdk.Stack {
             .addAllResources());
         lexProject.addToRolePolicy(new iam.PolicyStatement()
             .addAction('cloudformation:DescribeStackResource')
-            .addResource(cdk.ArnUtils.fromComponents({
+            .addResource(cdk.arnFromComponents({
                 service: 'cloudformation',
                 resource: 'stack',
                 resourceName: 'TriviaGameChatBot*'
-            })));
+            }, this)));
 
         const deployLexStage = pipeline.addStage('DeployLexBot');
         lexProject.addToPipeline(deployLexStage, 'Deploy',
@@ -47,5 +49,10 @@ class TriviaGameChatBotPipelineStack extends cdk.Stack {
 }
 
 const app = new cdk.App();
-new TriviaGameChatBotPipelineStack(app, 'TriviaGameChatBotPipeline');
+const repoOwner = (process.env.GIT_REPO_OWNER) ? process.env.GIT_REPO_OWNER : 'aws-samples';
+const repoName = (process.env.GIT_REPO_NAME) ? process.env.GIT_REPO_NAME : 'aws-reinvent-2018-trivia-game';
+new TriviaGameChatBotPipelineStack(app, 'TriviaGameChatBotPipeline', {
+    repoOwner: repoOwner,
+    repoName: repoName
+});
 app.run();

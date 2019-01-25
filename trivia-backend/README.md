@@ -22,7 +22,13 @@ aws ssm put-parameter --name CertificateArn-test-api.reinvent-trivia.com --type 
 
 ## Customize
 
-Replace all references to 'reinvent-trivia.com' with your own domain name.
+Set the following environment variables to generate cloud formation templates that are customized to your domain name.
+
+```
+export DOMAIN_TEST=<test-api.your_domain.com>
+export DOMAIN_PROD=<api.your_domain.com>
+export DOMAIN_ZONE=<your_domain.com>
+```
 
 # Docker images
 

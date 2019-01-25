@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { CertificateRef } from '@aws-cdk/aws-certificatemanager';
+import { Certificate } from '@aws-cdk/aws-certificatemanager';
 import { VpcNetwork } from '@aws-cdk/aws-ec2';
 import { Repository } from '@aws-cdk/aws-ecr';
 import { Cluster, ContainerImage, LoadBalancedFargateService } from '@aws-cdk/aws-ecs';
@@ -16,6 +16,8 @@ import { Alarm } from '@aws-cdk/aws-cloudwatch';
 import cdk = require('@aws-cdk/cdk');
 
 interface TriviaBackendStackProps extends cdk.StackProps {
+  repositoryName: string;
+  imageTag: string;
   domainName: string;
   domainZone: string;
 }
@@ -31,19 +33,18 @@ class TriviaBackendStack extends cdk.Stack {
     // Configuration parameters
     const domainZone = new HostedZoneProvider(this, { domainName: props.domainZone }).findAndImport(this, 'Zone');
     const certParam = new cdk.SSMParameterProvider(this, { parameterName: 'CertificateArn-' + props.domainName });
-    const certificate = CertificateRef.import(this, 'Cert', { certificateArn: certParam.parameterValue() });
-    const imageRepo = Repository.import(this, 'Repo', { repositoryName: 'reinvent-trivia-backend' });
-    const tag = (process.env.IMAGE_TAG) ? process.env.IMAGE_TAG : 'latest';
-    const image = ContainerImage.fromEcrRepository(imageRepo, tag)
+    const certificate = Certificate.import(this, 'Certificate', { certificateArn: certParam.parameterValue() });
+    const imageRepo = Repository.import(this, 'Repo', { repositoryName: props.repositoryName });
+    const image = ContainerImage.fromEcrRepository(imageRepo, props.imageTag)
 
     // Fargate service + load balancer
     const service = new LoadBalancedFargateService(this, 'Service', {
-      cluster,
-      image,
+      cluster: cluster,
+      image: image,
       desiredCount: 3,
       domainName: props.domainName,
-      domainZone,
-      certificate
+      domainZone: domainZone,
+      certificate: certificate
     });
 
     // Second listener for testing
@@ -94,12 +95,21 @@ class TriviaBackendStack extends cdk.Stack {
 }
 
 const app = new cdk.App();
+const repositoryName = (process.env.IMAGE_REPO_NAME) ? process.env.IMAGE_REPO_NAME : 'reinvent-trivia-backend';
+const imageTag = (process.env.IMAGE_TAG) ? process.env.IMAGE_TAG : 'latest';
+const domainTest = (process.env.DOMAIN_TEST) ? process.env.DOMAIN_TEST : 'api-test.reinvent-trivia.com';
+const domainProd = (process.env.DOMAIN_PROD) ? process.env.DOMAIN_PROD : 'api.reinvent-trivia.com';
+const domainZone = (process.env.DOMAIN_ZONE) ? process.env.DOMAIN_ZONE : 'reinvent-trivia.com';
 new TriviaBackendStack(app, 'TriviaBackendTest', {
-  domainName: 'api-test.reinvent-trivia.com',
-  domainZone: 'reinvent-trivia.com'
+  repositoryName: repositoryName,
+  imageTag: imageTag,
+  domainName: domainTest,
+  domainZone: domainZone,
 });
 new TriviaBackendStack(app, 'TriviaBackendProd', {
-  domainName: 'api.reinvent-trivia.com',
-  domainZone: 'reinvent-trivia.com'
+  repositoryName: repositoryName,
+  imageTag: imageTag,
+  domainName: domainProd,
+  domainZone: domainZone,
 });
 app.run();
